@@ -4,10 +4,11 @@ import zio.{Console, ZIO, ZIOAppDefault}
 import zio.openai.*
 import zio.openai.model.CreateCompletionRequest.Prompt
 import zio.openai.model.Temperature
+import zio.openai.model.CreateCompletionRequest
 
 object Chat extends ZIOAppDefault:
 
-  def generatePrompt(animal: String): Prompt =
+  def generateAnimalPrompt(animal: String): Prompt =
     Prompt.String(
       s"""Suggest three names for an animal that is a supervillain.
         |
@@ -21,13 +22,36 @@ object Chat extends ZIOAppDefault:
         |Names:""".stripMargin
     )
 
-  def execute =  for {
+  def singleLine = Prompt.String(
+    s"""The following is a hilarious conversation between Captain Jean-luc Picard and Commander Worf from Star Trek 
+      |after they walk into a Vulcan bar.
+      |
+      |Picard: Bartender! Please, a glass of your finest red wine.
+      |Worf: Captain, Vulcans do not drink alcohol.
+      |Bartender: We do stock Romulan ale, however. Would you like a glass?
+      |Worf: Captain, I think this is a trap.
+      |Picard:""".stripMargin
+  )
+
+  def suggestNames =  for {
     result <- Completions.createCompletion(
       model = "text-davinci-003",
-      prompt = generatePrompt("racoon"),
-      temperature = Temperature(0.6)
+      prompt = generateAnimalPrompt("racoon"),
+      temperature = Temperature(0.6),
+      maxTokens = CreateCompletionRequest.MaxTokens(2000)
     )
     _ <- Console.printLine("Names: " + result.choices.flatMap(_.text.toOption).mkString(", "))
   } yield ()
 
-  override def run = execute.provide(Completions.default)
+  def finishStory = for {
+    result <- Completions.createCompletion(
+      model = "text-davinci-003",
+      prompt = singleLine,
+      temperature = Temperature(0.7)
+    )
+    _ <- Console.printLine(result.choices.flatMap(_.text.toOption).mkString(" "))
+    _ <- Console.printLine("END")
+  } yield () 
+
+  override def run = finishStory.provide(Completions.default)
+    // suggestNames.provide(Completions.default)
